@@ -15,6 +15,7 @@ import time
 import socket
 import urllib.parse
 import webbrowser
+import hashlib
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -23,6 +24,37 @@ PUBLIC_DIR = os.path.join(BASE_DIR, 'public')
 UPLOADS_DIR = os.path.join(PUBLIC_DIR, 'uploads')
 STORES_FILE = os.path.join(DATA_DIR, 'stores.json')
 BACKUP_FILE = os.path.join(DATA_DIR, 'stores_backup.json')
+AUTH_FILE = os.path.join(DATA_DIR, 'auth_config.json')
+
+# Default passwords if not configured
+DEFAULT_AUTH = {
+    "admin_pass": "admin2026",
+    "guest_pass": "terrazas2026"
+}
+
+def load_auth_config():
+    if not os.path.exists(AUTH_FILE):
+        with open(AUTH_FILE, 'w', encoding='utf-8') as f:
+            json.dump(DEFAULT_AUTH, f, indent=2)
+        return DEFAULT_AUTH
+    try:
+        with open(AUTH_FILE, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except Exception:
+        return DEFAULT_AUTH
+
+def check_token(auth_header):
+    if not auth_header:
+        return None
+    token = auth_header.replace('Bearer ', '').strip()
+    cfg = load_auth_config()
+    admin_token = hashlib.sha256(f"admin:{cfg.get('admin_pass')}".encode('utf-8')).hexdigest()
+    guest_token = hashlib.sha256(f"guest:{cfg.get('guest_pass')}".encode('utf-8')).hexdigest()
+    if token == admin_token:
+        return 'admin'
+    elif token == guest_token:
+        return 'guest'
+    return None
 
 os.makedirs(DATA_DIR, exist_ok=True)
 os.makedirs(UPLOADS_DIR, exist_ok=True)
@@ -80,7 +112,15 @@ class AppRequestHandler(BaseHTTPRequestHandler):
         path = parsed.path
 
         # REST API Routes
-        if path == '/api/network-info':
+        if path == '/api/auth/verify':
+            token_role = check_token(self.headers.get('Authorization'))
+            if token_role:
+                self.send_json(200, {'success': True, 'role': token_role})
+            else:
+                self.send_error_json(401, 'Token no válido')
+            return
+
+        elif path == '/api/network-info':
             ip = get_local_ip()
             port = self.server.server_address[1]
             self.send_json(200, {
@@ -197,7 +237,44 @@ class AppRequestHandler(BaseHTTPRequestHandler):
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path
 
-        if path.startswith('/api/stores/') and path.endswith('/notes'):
+        if path == '/api/auth/login':
+            body = self.read_json_body()
+            password = body.get('password', '').strip()
+            cfg = load_auth_config()
+            admin_pwd = cfg.get('admin_pass', DEFAULT_AUTH['admin_pass'])
+            guest_pwd = cfg.get('guest_pass', DEFAULT_AUTH['guest_pass'])
+
+            if password == admin_pwd:
+                token = hashlib.sha256(f"admin:{admin_pwd}".encode('utf-8')).hexdigest()
+                self.send_json(200, {'success': True, 'role': 'admin', 'token': token})
+                return
+            elif password == guest_pwd:
+                token = hashlib.sha256(f"guest:{guest_pwd}".encode('utf-8')).hexdigest()
+                self.send_json(200, {'success': True, 'role': 'guest', 'token': token})
+                return
+            else:
+                self.send_error_json(401, 'Contraseña incorrecta')
+                return
+
+        elif path == '/api/auth/change-passwords':
+            role = check_token(self.headers.get('Authorization'))
+            if role != 'admin':
+                self.send_error_json(403, 'Solo el Administrador puede cambiar las contraseñas')
+                return
+            body = self.read_json_body()
+            new_admin = body.get('admin_pass', '').strip()
+            new_guest = body.get('guest_pass', '').strip()
+            cfg = load_auth_config()
+            if new_admin:
+                cfg['admin_pass'] = new_admin
+            if new_guest:
+                cfg['guest_pass'] = new_guest
+            with open(AUTH_FILE, 'w', encoding='utf-8') as f:
+                json.dump(cfg, f, indent=2)
+            self.send_json(200, {'success': True, 'message': 'Contraseñas actualizadas correctamente'})
+            return
+
+        elif path.startswith('/api/stores/') and path.endswith('/notes'):
             parts = path.strip('/').split('/')
             store_id = parts[2]
             body = self.read_json_body()
@@ -229,6 +306,10 @@ class AppRequestHandler(BaseHTTPRequestHandler):
             return
 
         elif path == '/api/reset':
+            role = check_token(self.headers.get('Authorization'))
+            if role != 'admin':
+                self.send_error_json(403, 'Permiso denegado. Se requiere rol de Administrador.')
+                return
             if os.path.exists(BACKUP_FILE):
                 with open(BACKUP_FILE, 'r', encoding='utf-8') as f:
                     data = json.load(f)
@@ -239,6 +320,10 @@ class AppRequestHandler(BaseHTTPRequestHandler):
             return
 
         elif path == '/api/import':
+            role = check_token(self.headers.get('Authorization'))
+            if role != 'admin':
+                self.send_error_json(403, 'Permiso denegado. Se requiere rol de Administrador.')
+                return
             body = self.read_json_body()
             if isinstance(body, list) and len(body) > 0:
                 save_stores(body)
@@ -258,6 +343,10 @@ class AppRequestHandler(BaseHTTPRequestHandler):
         path = parsed.path
 
         if path.startswith('/api/stores/'):
+            role = check_token(self.headers.get('Authorization'))
+            if role != 'admin':
+                self.send_error_json(403, 'Permiso denegado. Se requiere rol de Administrador para modificar locales.')
+                return
             store_id = path[len('/api/stores/'):]
             updates = self.read_json_body()
             stores = load_stores()
@@ -339,9 +428,13 @@ def find_free_port(start_port=8000, max_attempts=20):
 
 def run_server(port=None):
     if port is None:
-        port = find_free_port(8000)
+        env_port = os.environ.get('PORT')
+        if env_port:
+            port = int(env_port)
+        else:
+            port = find_free_port(8000)
 
-    # 0.0.0.0 binds to all interfaces, allowing access from mobile on local Wi-Fi
+    # 0.0.0.0 binds to all interfaces, allowing access from mobile on local Wi-Fi or cloud hosting
     server_address = ('0.0.0.0', port)
     httpd = HTTPServer(server_address, AppRequestHandler)
 

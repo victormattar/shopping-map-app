@@ -215,7 +215,72 @@
     btnFloorPA: document.getElementById('btnFloorPA'),
 
     // Category Custom Input
-    editCategoryCustom: document.getElementById('editCategoryCustom')
+    editCategoryCustom: document.getElementById('editCategoryCustom'),
+
+    // Auth & Login
+    loginOverlay: document.getElementById('loginOverlay'),
+    loginForm: document.getElementById('loginForm'),
+    loginPasswordInput: document.getElementById('loginPasswordInput'),
+    loginErrorMsg: document.getElementById('loginErrorMsg'),
+    logoutBtn: document.getElementById('logoutBtn'),
+    settingsAuthGroup: document.getElementById('settingsAuthGroup'),
+    changePasswordsForm: document.getElementById('changePasswordsForm'),
+    newAdminPassInput: document.getElementById('newAdminPassInput'),
+    newGuestPassInput: document.getElementById('newGuestPassInput')
+  };
+
+  // Auth state
+  const auth = {
+    token: localStorage.getItem('shopping_auth_token') || null,
+    role: localStorage.getItem('shopping_auth_role') || null, // 'admin' | 'guest'
+    
+    getHeaders() {
+      const headers = { 'Content-Type': 'application/json' };
+      if (this.token) {
+        headers['Authorization'] = `Bearer ${this.token}`;
+      }
+      return headers;
+    },
+
+    setSession(token, role) {
+      this.token = token;
+      this.role = role;
+      localStorage.setItem('shopping_auth_token', token);
+      localStorage.setItem('shopping_auth_role', role);
+      this.applyRoleRestrictions();
+    },
+
+    clearSession() {
+      this.token = null;
+      this.role = null;
+      localStorage.removeItem('shopping_auth_token');
+      localStorage.removeItem('shopping_auth_role');
+      if (dom.loginOverlay) {
+        dom.loginOverlay.style.display = 'flex';
+        dom.loginPasswordInput.value = '';
+        dom.loginErrorMsg.style.display = 'none';
+        dom.loginPasswordInput.focus();
+      }
+    },
+
+    applyRoleRestrictions() {
+      const isAdmin = this.role === 'admin';
+      
+      // If guest, hide edit buttons and danger zone in settings
+      if (dom.openEditBtn) dom.openEditBtn.style.display = isAdmin ? 'inline-flex' : 'none';
+      if (dom.quickToggleStatusBtn) dom.quickToggleStatusBtn.style.display = isAdmin ? 'inline-flex' : 'none';
+      if (dom.addCustomFieldBtn) dom.addCustomFieldBtn.style.display = isAdmin ? 'inline-block' : 'none';
+      if (dom.submitNoteBtn) dom.submitNoteBtn.style.display = isAdmin ? 'inline-flex' : 'none';
+      if (dom.settingsAuthGroup) dom.settingsAuthGroup.style.display = isAdmin ? 'block' : 'none';
+      if (dom.resetDatabaseBtn) {
+        const dangerZone = dom.resetDatabaseBtn.closest('.danger-zone');
+        if (dangerZone) dangerZone.style.display = isAdmin ? 'block' : 'none';
+      }
+      if (dom.uploadJsonBtn) {
+        const importGroup = dom.uploadJsonBtn.closest('.settings-group');
+        if (importGroup) importGroup.style.display = isAdmin ? 'block' : 'none';
+      }
+    }
   };
 
   // =========================================================================
@@ -244,7 +309,7 @@
       try {
         const res = await fetch(`/api/stores/${encodeURIComponent(storeId)}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          headers: auth.getHeaders(),
           body: JSON.stringify(updates)
         });
         if (res.ok) {
@@ -270,7 +335,7 @@
       try {
         const res = await fetch(`/api/stores/${encodeURIComponent(storeId)}/notes`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: auth.getHeaders(),
           body: JSON.stringify({ text, author })
         });
         if (res.ok) {
@@ -302,7 +367,10 @@
 
     async resetDatabase() {
       try {
-        const res = await fetch('/api/reset', { method: 'POST' });
+        const res = await fetch('/api/reset', {
+          method: 'POST',
+          headers: auth.getHeaders()
+        });
         if (res.ok) {
           const data = await res.json();
           if (data.success && data.stores) {
@@ -320,7 +388,7 @@
       try {
         const res = await fetch('/api/import', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: auth.getHeaders(),
           body: JSON.stringify(jsonData)
         });
         if (res.ok) {
@@ -381,6 +449,26 @@
   async function initApp() {
     setupPanAndZoom();
     setupEventListeners();
+
+    // Check if session token exists
+    if (auth.token) {
+      try {
+        const verifyRes = await fetch('/api/auth/verify', { headers: auth.getHeaders() });
+        if (verifyRes.ok) {
+          const vData = await verifyRes.json();
+          auth.setSession(auth.token, vData.role);
+          if (dom.loginOverlay) dom.loginOverlay.style.display = 'none';
+        } else {
+          auth.clearSession();
+        }
+      } catch (err) {
+        // Offline / fallback mode
+        if (dom.loginOverlay) dom.loginOverlay.style.display = 'none';
+        auth.applyRoleRestrictions();
+      }
+    } else {
+      auth.clearSession();
+    }
 
     // Load store data
     state.stores = await api.fetchStores();
@@ -1628,6 +1716,74 @@
         if (dom.editCategoryCustom) {
           dom.editCategoryCustom.style.display = isCustom ? 'block' : 'none';
           if (!isCustom) dom.editCategoryCustom.value = '';
+        }
+      });
+    }
+
+    // Login Form Submit
+    if (dom.loginForm) {
+      dom.loginForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const pwd = dom.loginPasswordInput.value.trim();
+        if (!pwd) return;
+
+        try {
+          const res = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password: pwd })
+          });
+          const data = await res.json();
+          if (data.success && data.token) {
+            auth.setSession(data.token, data.role);
+            dom.loginOverlay.style.display = 'none';
+            showToast(data.role === 'admin' ? 'Bienvenido, Administrador' : 'Bienvenido (Modo Consulta)', 'success');
+          } else {
+            dom.loginErrorMsg.style.display = 'block';
+            dom.loginPasswordInput.focus();
+            dom.loginPasswordInput.select();
+          }
+        } catch (err) {
+          showToast('Error al conectar con el servidor', 'error');
+        }
+      });
+    }
+
+    // Logout
+    if (dom.logoutBtn) {
+      dom.logoutBtn.addEventListener('click', () => {
+        auth.clearSession();
+        showToast('Sesión cerrada', 'success');
+      });
+    }
+
+    // Change passwords form
+    if (dom.changePasswordsForm) {
+      dom.changePasswordsForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const newAdmin = dom.newAdminPassInput.value.trim();
+        const newGuest = dom.newGuestPassInput.value.trim();
+        if (!newAdmin && !newGuest) {
+          showToast('Ingresa al menos una nueva contraseña', 'error');
+          return;
+        }
+
+        try {
+          const res = await fetch('/api/auth/change-passwords', {
+            method: 'POST',
+            headers: auth.getHeaders(),
+            body: JSON.stringify({ admin_pass: newAdmin, guest_pass: newGuest })
+          });
+          const data = await res.json();
+          if (data.success) {
+            showToast('Contraseñas actualizadas con éxito', 'success');
+            dom.newAdminPassInput.value = '';
+            dom.newGuestPassInput.value = '';
+          } else {
+            showToast(data.error || 'Error al cambiar contraseñas', 'error');
+          }
+        } catch (err) {
+          showToast('Error al conectar con el servidor', 'error');
         }
       });
     }
