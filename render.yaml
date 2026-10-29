@@ -1,7 +1,7 @@
 services:
   - type: web
     name: shopping-map-app
-    env: python
+    runtime: python
     buildCommand: ""
     startCommand: "python server.py"
     plan: free
