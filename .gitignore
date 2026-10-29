@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.pyc
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Backups
+data/stores_backup.json
+
+# Temp
+*.tmp
+*.log

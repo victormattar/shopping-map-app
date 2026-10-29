@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Terrazas Shopping Santiago - Plano Interactivo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-layout">
+    <!-- TOP NAVIGATION & CONTROLS BAR -->
+    <header class="app-header">
+      <div class="header-brand">
+        <img src="logo.png" alt="Terrazas Shopping Santiago" class="brand-logo-img">
+        <div class="brand-text">
+          <h1>Terrazas Shopping</h1>
+          <span class="brand-subtitle">Santiago · Plano Interactivo</span>
+        </div>
+      </div>
+
+      <!-- SELECTOR DE PLANTA (PLANTA BAJA / PLANTA ALTA) -->
+      <div class="floor-switcher" id="floorSwitcher">
+        <button class="floor-switch-btn active" id="btnFloorPB" data-floor="PB" title="Ver Plano de Planta Baja">
+          <span class="floor-pill">NIVEL 0</span>
+          <span class="floor-label">Planta Baja</span>
+        </button>
+        <button class="floor-switch-btn" id="btnFloorPA" data-floor="PA" title="Ver Plano de Planta Alta">
+          <span class="floor-pill">NIVEL 1</span>
+          <span class="floor-label">Planta Alta</span>
+        </button>
+      </div>
+
+      <!-- BUSCADOR EN TIEMPO REAL -->
+      <div class="search-container">
+        <div class="search-input-wrapper">
+          <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"/>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input type="text" id="searchInput" placeholder="Buscar por número (ej: 15, 32), marca o rubro..." autocomplete="off">
+          <button id="clearSearchBtn" class="clear-search-btn" title="Limpiar búsqueda" style="display: none;">✕</button>
+          <span class="search-badge">/</span>
+        </div>
+        <div id="searchResultsDropdown" class="search-dropdown" style="display: none;"></div>
+      </div>
+
+      <!-- KPI METRICS SUMMARY -->
+      <div class="header-kpis">
+        <div class="kpi-chip" title="Porcentaje de locales comerciales ocupados">
+          <span class="kpi-label">Ocupación</span>
+          <span class="kpi-val" id="kpiOccupancy">--%</span>
+        </div>
+        <div class="kpi-chip highlight" title="Locales disponibles para comercializar">
+          <span class="kpi-label">Disponibles</span>
+          <span class="kpi-val text-success" id="kpiAvailable">--</span>
+        </div>
+        <div class="kpi-chip" title="Superficie comercial total">
+          <span class="kpi-label">Total Locales</span>
+          <span class="kpi-val" id="kpiTotal">--</span>
+        </div>
+      </div>
+
+      <!-- HEADER ACTIONS -->
+      <div class="header-actions">
+        <div class="view-mode-selector">
+          <label for="viewModeSelect" class="sr-only">Modo de Vista</label>
+          <select id="viewModeSelect" class="btn-select" title="Cambiar modo de visualización del mapa">
+            <option value="original">🎨 Plano Original (Blueprint)</option>
+            <option value="vector">📐 Modo Vectorial Limpio</option>
+            <option value="status">🟢 Modo Ocupación (Disponibilidad)</option>
+            <option value="category">🏷️ Modo Rubros Comerciales</option>
+          </select>
+        </div>
+
+        <button id="exportBtn" class="btn-icon" title="Exportar datos a CSV / JSON">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+        </button>
+
+        <button id="mobileConnectBtn" class="btn-icon" title="Ver en Celular — Escanear código QR">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="5" y="2" width="14" height="20" rx="2" ry="2"/>
+            <line x1="12" y1="18" x2="12.01" y2="18"/>
+          </svg>
+        </button>
+
+        <button id="settingsBtn" class="btn-icon" title="Opciones y Copias de Seguridad">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- STATUS FILTER BAR -->
+    <div class="filter-bar">
+      <div class="filter-chips" id="statusFilterChips">
+        <button class="filter-chip active" data-status="all">
+          Todos <span class="badge" id="countAll">56</span>
+        </button>
+        <button class="filter-chip" data-status="disponible">
+          <span class="status-dot dot-disponible"></span> Disponibles <span class="badge" id="countDisponible">0</span>
+        </button>
+        <button class="filter-chip" data-status="ocupado">
+          <span class="status-dot dot-ocupado"></span> Ocupados <span class="badge" id="countOcupado">0</span>
+        </button>
+        <button class="filter-chip" data-status="reservado">
+          <span class="status-dot dot-reservado"></span> Reservados <span class="badge" id="countReservado">0</span>
+        </button>
+        <button class="filter-chip" data-status="mantenimiento">
+          <span class="status-dot dot-mantenimiento"></span> En Mantenimiento <span class="badge" id="countMantenimiento">0</span>
+        </button>
+      </div>
+
+      <div class="filter-category-select">
+        <label for="categoryFilter" class="filter-label">Rubro:</label>
+        <select id="categoryFilter" class="filter-select">
+          <option value="all">Todos los rubros</option>
+          <!-- Dynamic options -->
+        </select>
+      </div>
+
+      <div class="blueprint-opacity-control" id="blueprintOpacityControl">
+        <label for="opacitySlider" class="filter-label">Opacidad Plano:</label>
+        <input type="range" id="opacitySlider" min="0" max="100" value="85" title="Ajustar transparencia del plano de fondo">
+        <span id="opacityVal">85%</span>
+      </div>
+    </div>
+
+    <!-- MAIN INTERACTIVE WORKSPACE -->
+    <main class="main-workspace">
+      <!-- MAP CONTAINER -->
+      <div class="map-viewport" id="mapViewport">
+        <!-- SVG Interactive Stage -->
+        <svg id="mallMapSvg" class="mall-map-svg" viewBox="0 0 457 610" preserveAspectRatio="xMidYMid meet">
+          <defs>
+            <!-- Drop Shadow Filters -->
+            <filter id="moduleGlow" x="-20%" y="-20%" width="140%" height="140%">
+              <feGaussianBlur stdDeviation="3" result="blur" />
+              <feColorMatrix type="matrix" values="0 0 0 0 0.15   0 0 0 0 0.45   0 0 0 0 0.95  0 0 0 0.8 0"/>
+              <feMerge>
+                <feMergeNode/>
+                <feMergeNode in="SourceGraphic"/>
+              </feMerge>
+            </filter>
+            <filter id="selectionGlow" x="-30%" y="-30%" width="160%" height="160%">
+              <feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="#2563EB" flood-opacity="0.9"/>
+            </filter>
+            <!-- Pattern for Corridor floor in clean vector mode -->
+            <pattern id="floorTiles" width="20" height="20" patternUnits="userSpaceOnUse">
+              <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#E2E8F0" stroke-width="0.5"/>
+            </pattern>
+          </defs>
+
+          <!-- ROOT TRANSFORM GROUP (Controlled by Pan & Zoom engine) -->
+          <g id="mapStage">
+            <!-- BACKGROUND BLUEPRINT IMAGE -->
+            <image id="blueprintImage" href="floorplan.png" x="0" y="0" width="457" height="610" opacity="0.85" />
+
+            <!-- VECTOR FLOOR & WALLS LAYER (Visible when in clean vector mode or as overlay) -->
+            <g id="vectorBaseLayer" class="vector-base-layer" style="display: none;">
+              <!-- Outer Building Polygon -->
+              <polygon id="vectorOuterWalls" points="20,15 235,15 235,35 255,35 255,15 275,15 275,35 320,35 320,15 345,15 345,75 435,75 435,575 320,575 320,600 280,600 280,565 220,565 220,600 20,600 20,15" fill="#FFF9E6" stroke="#0F172A" stroke-width="3"/>
+            </g>
+
+            <!-- STATIC TECHNICAL AREAS (Emergency exits, stairs, technical corridors) -->
+            <g id="staticFeaturesGroup"></g>
+
+            <!-- ENTRANCE ARROWS -->
+            <g id="entranceArrowsGroup"></g>
+
+            <!-- INTERACTIVE STORE MODULES -->
+            <g id="storeModulesGroup"></g>
+
+            <!-- SELECTION HIGHLIGHT INDICATOR -->
+            <g id="selectionIndicatorGroup" style="pointer-events: none;"></g>
+          </g>
+        </svg>
+
+        <!-- FLOATING TOOLBAR CONTROLS -->
+        <div class="map-floating-controls">
+          <button id="zoomInBtn" class="float-btn" title="Acercar (+)">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"/>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              <line x1="11" y1="8" x2="11" y2="14"/>
+              <line x1="8" y1="11" x2="14" y2="11"/>
+            </svg>
+          </button>
+          <button id="zoomOutBtn" class="float-btn" title="Alejar (-)">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"/>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              <line x1="8" y1="11" x2="14" y2="11"/>
+            </svg>
+          </button>
+          <button id="resetZoomBtn" class="float-btn" title="Restablecer plano general (Vista completa)">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="15 3 21 3 21 9"/>
+              <polyline points="9 21 3 21 3 15"/>
+              <line x1="21" y1="3" x2="14" y2="10"/>
+              <line x1="3" y1="21" x2="10" y2="14"/>
+            </svg>
+          </button>
+          <div class="float-divider"></div>
+          <button id="focusActiveBtn" class="float-btn" title="Centrar en local seleccionado" style="display: none;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/>
+              <circle cx="12" cy="12" r="4"/>
+              <line x1="12" y1="2" x2="12" y2="4"/>
+              <line x1="12" y1="20" x2="12" y2="22"/>
+              <line x1="2" y1="12" x2="4" y2="12"/>
+              <line x1="20" y1="12" x2="22" y2="12"/>
+            </svg>
+          </button>
+          <button id="toggleLabelsBtn" class="float-btn active" title="Mostrar / Ocultar etiquetas de números">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M4 7V4h16v3"/>
+              <path d="M9 20h6"/>
+              <path d="M12 4v16"/>
+            </svg>
+          </button>
+        </div>
+
+        <!-- COLLAPSIBLE MAP LEGEND -->
+        <div class="map-legend" id="mapLegend">
+          <div class="legend-header" id="legendToggle">
+            <span>Leyenda del Plano</span>
+            <svg class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+          </div>
+          <div class="legend-content" id="legendContent">
+            <div class="legend-section">
+              <span class="legend-title">Sectores Originales:</span>
+              <div class="legend-item"><span class="legend-swatch" style="background: #FFFFFF; border: 1px solid #94A3B8;"></span> Locales Blancos (0-20, 32-44)</div>
+              <div class="legend-item"><span class="legend-swatch" style="background: #FFF280;"></span> Sector Gourmet (45-50)</div>
+              <div class="legend-item"><span class="legend-swatch" style="background: #C8287D;"></span> Sector Moda y Belleza (51-61)</div>
+              <div class="legend-item"><span class="legend-swatch" style="background: #FF5555;"></span> Sector Recreativo y Hogar (62-66)</div>
+              <div class="legend-item"><span class="legend-swatch" style="background: #A6A6A6;"></span> Servicios (Baños / Escaleras / Ascensores)</div>
+              <div class="legend-item"><span class="legend-swatch" style="background: #002060;"></span> Salida de Emergencia</div>
+              <div class="legend-item"><span class="legend-swatch" style="background: #7030A0;"></span> Pasillo Técnico</div>
+            </div>
+            <div class="legend-tip">
+              💡 <em>Haz clic sobre cualquier local para profundizar en detalles con zoom automático.</em>
+            </div>
+          </div>
+        </div>
+
+        <!-- MINIMAP RADAR -->
+        <div class="minimap-container" id="minimapContainer">
+          <svg id="minimapSvg" viewBox="0 0 457 610">
+            <!-- Simplified minimap clone -->
+          </svg>
+          <div id="minimapIndicator" class="minimap-indicator"></div>
+        </div>
+
+        <!-- TOOLTIP ON HOVER -->
+        <div id="mapTooltip" class="map-tooltip" style="display: none;"></div>
+      </div>
+
+      <!-- SIDE INSPECTOR PANEL (Ficha Detallada del Módulo) -->
+      <aside class="inspector-panel" id="inspectorPanel">
+        <!-- HEADER -->
+        <div class="panel-header">
+          <div class="panel-title-group">
+            <div class="panel-badges">
+              <span class="badge-module-num" id="panelModuleNum">LOCAL #--</span>
+              <span class="status-badge badge-ocupado" id="panelStatusBadge">Ocupado</span>
+              <span class="zone-badge" id="panelZone">Ala Oeste</span>
+            </div>
+            <h2 class="panel-store-name" id="panelStoreName">Nombre del Local</h2>
+            <p class="panel-category" id="panelCategory">Rubro Comercial</p>
+          </div>
+          <div class="panel-header-actions">
+            <button id="zoomOutToOverviewBtn" class="btn-icon" title="Volver al plano general">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="15 18 9 12 15 6"/>
+              </svg>
+            </button>
+            <button id="closePanelBtn" class="btn-icon" title="Cerrar panel">✕</button>
+          </div>
+        </div>
+
+        <!-- ACTION BUTTONS -->
+        <div class="panel-quick-actions">
+          <button id="openEditBtn" class="btn-primary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 20h9"/>
+              <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+            </svg>
+            Editar Información
+          </button>
+          <button id="quickToggleStatusBtn" class="btn-secondary" title="Cambiar estado rápidamente">
+            Cambiar Estado
+          </button>
+        </div>
+
+        <!-- SUMMARY STATS -->
+        <div class="panel-stats-grid">
+          <div class="panel-stat-card">
+            <span class="stat-title">Superficie</span>
+            <span class="stat-value" id="panelArea">-- m²</span>
+          </div>
+          <div class="panel-stat-card">
+            <span class="stat-title">Alquiler Mensual</span>
+            <span class="stat-value" id="panelRent">$ -- USD</span>
+          </div>
+          <div class="panel-stat-card">
+            <span class="stat-title">Expensas</span>
+            <span class="stat-value" id="panelMaintenance">$ -- USD</span>
+          </div>
+        </div>
+
+        <!-- TABS BAR -->
+        <div class="panel-tabs">
+          <button class="panel-tab-btn active" data-tab="tab-comercial">Comercial</button>
+          <button class="panel-tab-btn" data-tab="tab-tecnica">Instalaciones</button>
+          <button class="panel-tab-btn" data-tab="tab-personalizados">Datos Extra (<span id="customFieldsCount">0</span>)</button>
+          <button class="panel-tab-btn" data-tab="tab-notas">Bitácora & Notas (<span id="notesCount">0</span>)</button>
+        </div>
+
+        <!-- TAB CONTENT 1: COMERCIAL & INQUILINO -->
+        <div class="tab-pane active" id="tab-comercial">
+          <div class="info-group">
+            <h3 class="info-section-title">Datos del Inquilino / Arrendatario</h3>
+            <div class="info-row">
+              <span class="info-label">Empresa / Razón Social:</span>
+              <span class="info-value font-medium" id="panelTenantCompany">--</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Responsable / Titular:</span>
+              <span class="info-value" id="panelTenantContact">--</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Teléfono / WhatsApp:</span>
+              <div class="info-value-with-action">
+                <span id="panelTenantPhone">--</span>
+                <a id="panelWhatsappLink" href="#" target="_blank" class="contact-link whatsapp-link" title="Contactar por WhatsApp">
+                  💬 WhatsApp
+                </a>
+              </div>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Correo Electrónico:</span>
+              <div class="info-value-with-action">
+                <span id="panelTenantEmail">--</span>
+                <a id="panelEmailLink" href="#" class="contact-link email-link" title="Enviar correo">
+                  ✉️ Email
+                </a>
+              </div>
+            </div>
+          </div>
+
+          <div class="info-group">
+            <h3 class="info-section-title">Vigencia del Contrato</h3>
+            <div class="contract-dates-box">
+              <div class="contract-date">
+                <span class="c-label">Inicio Contrato:</span>
+                <span class="c-val" id="panelContractStart">--</span>
+              </div>
+              <div class="contract-arrow">➔</div>
+              <div class="contract-date">
+                <span class="c-label">Vencimiento:</span>
+                <span class="c-val" id="panelContractEnd">--</span>
+              </div>
+            </div>
+            <div id="contractNoticeBadge" class="contract-notice" style="display: none;"></div>
+          </div>
+
+          <div class="info-group">
+            <h3 class="info-section-title">Horario de Operación</h3>
+            <div class="info-row">
+              <span class="info-label">Atención al Público:</span>
+              <span class="info-value" id="panelSchedule">Lunes a Domingo 10:00 - 22:00</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB CONTENT 2: INSTALACIONES Y SERVICIOS -->
+        <div class="tab-pane" id="tab-tecnica">
+          <div class="info-group">
+            <h3 class="info-section-title">Equipamiento e Instalaciones</h3>
+            <div class="features-pills" id="panelFeaturesList">
+              <!-- Dynamic features -->
+            </div>
+          </div>
+          <div class="info-group">
+            <h3 class="info-section-title">Ubicación Arquitectónica</h3>
+            <div class="info-row">
+              <span class="info-label">Sector en Plano:</span>
+              <span class="info-value" id="panelArchZone">Ala Oeste</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Nivel / Planta:</span>
+              <span class="info-value">Planta Baja (Nivel 0)</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB CONTENT 3: CAMPOS PERSONALIZADOS DINÁMICOS -->
+        <div class="tab-pane" id="tab-personalizados">
+          <div class="info-group">
+            <div class="flex-between">
+              <h3 class="info-section-title">Atributos Personalizados</h3>
+              <button id="addCustomFieldBtn" class="btn-xs btn-secondary">+ Agregar Campo</button>
+            </div>
+            <p class="section-desc">Incorpora información adicional específica para este módulo (pólizas, seguros, potencia, etc.):</p>
+            <div id="panelCustomFieldsList" class="custom-fields-list">
+              <!-- Dynamic custom fields -->
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB CONTENT 4: BITÁCORA Y NOTAS -->
+        <div class="tab-pane" id="tab-notas">
+          <div class="info-group">
+            <h3 class="info-section-title">Nueva Observación o Novedad</h3>
+            <div class="add-note-box">
+              <textarea id="newNoteInput" placeholder="Escribe una observación, inspección, acuerdo o novedad..." rows="2"></textarea>
+              <div class="add-note-footer">
+                <input type="text" id="newNoteAuthor" placeholder="Tu nombre / cargo" value="Administración">
+                <button id="submitNoteBtn" class="btn-primary btn-sm">Guardar Nota</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="info-group">
+            <h3 class="info-section-title">Historial de Bitácora</h3>
+            <div id="panelNotesList" class="notes-timeline">
+              <!-- Dynamic notes -->
+            </div>
+          </div>
+        </div>
+
+        <!-- FOOTER TIMESTAMP -->
+        <div class="panel-footer">
+          <span class="text-muted" id="panelUpdatedAt">Última actualización: --</span>
+        </div>
+      </aside>
+    </main>
+
+    <!-- MODAL DE EDICIÓN COMPLETA DEL LOCAL -->
+    <div class="modal-overlay" id="editModalOverlay" style="display: none;">
+      <div class="modal-card">
+        <div class="modal-header">
+          <div>
+            <h3 class="modal-title" id="editModalTitle">Editar Local Comercial</h3>
+            <p class="modal-subtitle">Modifica o incorpora nueva información para este módulo del shopping.</p>
+          </div>
+          <button id="closeEditModalBtn" class="btn-icon">✕</button>
+        </div>
+
+        <form id="editStoreForm" class="modal-body">
+          <input type="hidden" id="editStoreId">
+
+          <div class="form-grid">
+            <!-- IDENTIFICACIÓN BÁSICA -->
+            <div class="form-section-title">1. Identificación y Estado</div>
+
+            <div class="form-group">
+              <label for="editNumber">Número de Módulo / Local:</label>
+              <input type="text" id="editNumber" required readonly class="input-readonly">
+            </div>
+
+            <div class="form-group">
+              <label for="editName">Nombre Comercial / Marca: *</label>
+              <input type="text" id="editName" required placeholder="Ej: ZARA, Nike, Disponible...">
+            </div>
+
+            <div class="form-group">
+              <label for="editCategory">Rubro Comercial: *</label>
+              <select id="editCategory" class="form-select" required>
+                <option value="" disabled selected>-- Selecciona un Rubro --</option>
+                <optgroup label="Indumentaria, Calzado y Moda">
+                  <option value="Indumentaria y Moda">Indumentaria y Moda</option>
+                  <option value="Moda Internacional">Moda Internacional</option>
+                  <option value="Moda Femenina">Moda Femenina</option>
+                  <option value="Moda Masculina">Moda Masculina</option>
+                  <option value="Moda Joven">Moda Joven</option>
+                  <option value="Indumentaria Jeanswear">Indumentaria Jeanswear</option>
+                  <option value="Calzado y Marroquinería">Calzado y Marroquinería</option>
+                  <option value="Ropa Infantil y Bebés">Ropa Infantil y Bebés</option>
+                  <option value="Deportes y Calzado">Deportes y Calzado</option>
+                  <option value="Moda Urbana y Skate">Moda Urbana y Skate</option>
+                </optgroup>
+                <optgroup label="Gastronomía y Cafetería">
+                  <option value="Gastronomía y Comida Rápida">Gastronomía y Comida Rápida</option>
+                  <option value="Gastronomía / Restauración">Gastronomía / Restauración</option>
+                  <option value="Gastronomía y Pizzería">Gastronomía y Pizzería</option>
+                  <option value="Gastronomía Oriental">Gastronomía Oriental</option>
+                  <option value="Cafetería de Especialidad">Cafetería de Especialidad</option>
+                  <option value="Cafetería y Pastelería">Cafetería y Pastelería</option>
+                  <option value="Heladería Artesanal">Heladería Artesanal</option>
+                  <option value="Cervecería Artesanal & Restó">Cervecería Artesanal & Restó</option>
+                  <option value="Coctelería y Terraza Bar">Coctelería y Terraza Bar</option>
+                </optgroup>
+                <optgroup label="Entretenimiento, Cultura y Ocio">
+                  <option value="Cine y Entretenimiento">Cine y Entretenimiento</option>
+                  <option value="Juegos y Entretenimiento">Juegos y Entretenimiento</option>
+                  <option value="Juguetes y Coleccionables">Juguetes y Coleccionables</option>
+                  <option value="Librería y Papelería">Librería y Papelería</option>
+                  <option value="Centro de Eventos & Exposiciones">Centro de Eventos & Exposiciones</option>
+                  <option value="Golosinas y Snacks">Golosinas y Snacks</option>
+                </optgroup>
+                <optgroup label="Tecnología, Joyería y Otros">
+                  <option value="Tecnología y Electrónica">Tecnología y Electrónica</option>
+                  <option value="Tecnología y Móviles">Tecnología y Móviles</option>
+                  <option value="Accesorios Celulares">Accesorios Celulares</option>
+                  <option value="Joyería y Accesorios">Joyería y Accesorios</option>
+                  <option value="Óptica y Accesorios">Óptica y Accesorios</option>
+                  <option value="Salud y Farmacia">Salud y Farmacia</option>
+                  <option value="Hogar y Decoración">Hogar y Decoración</option>
+                  <option value="Comercial General">Comercial General</option>
+                </optgroup>
+                <option value="__custom__">➕ Otro / Escribir rubro personalizado...</option>
+              </select>
+              <input type="text" id="editCategoryCustom" placeholder="Escribe el nombre del nuevo rubro..." style="display: none; margin-top: 6px;">
+            </div>
+
+            <div class="form-group">
+              <label>Estado de Ocupación: *</label>
+              <div class="status-radio-group">
+                <label class="radio-card">
+                  <input type="radio" name="editStatus" value="ocupado">
+                  <span class="radio-chip chip-ocupado">Ocupado</span>
+                </label>
+                <label class="radio-card">
+                  <input type="radio" name="editStatus" value="disponible">
+                  <span class="radio-chip chip-disponible">Disponible</span>
+                </label>
+                <label class="radio-card">
+                  <input type="radio" name="editStatus" value="reservado">
+                  <span class="radio-chip chip-reservado">Reservado</span>
+                </label>
+                <label class="radio-card">
+                  <input type="radio" name="editStatus" value="mantenimiento">
+                  <span class="radio-chip chip-mantenimiento">Mantenimiento</span>
+                </label>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="editZone">Sector / Zona en Plano:</label>
+              <input type="text" id="editZone" placeholder="Ej: Ala Oeste, Isla Central, Sector Gourmet...">
+            </div>
+
+            <!-- DIMENSIONES Y ECONOMÍA -->
+            <div class="form-section-title">2. Superficie y Canon Comercial</div>
+
+            <div class="form-group">
+              <label for="editArea">Superficie Total (m²): *</label>
+              <input type="number" step="0.1" id="editArea" required min="1">
+            </div>
+
+            <div class="form-group">
+              <label for="editRent">Alquiler Mensual (USD):</label>
+              <input type="number" step="10" id="editRent" min="0">
+            </div>
+
+            <div class="form-group">
+              <label for="editMaintenance">Expensas Mensuales (USD):</label>
+              <input type="number" step="10" id="editMaintenance" min="0">
+            </div>
+
+            <!-- INQUILINO Y CONTACTO -->
+            <div class="form-section-title">3. Arrendatario y Contacto</div>
+
+            <div class="form-group">
+              <label for="editTenantCompany">Empresa / Razón Social:</label>
+              <input type="text" id="editTenantCompany" placeholder="Ej: Inditex Argentina S.A.">
+            </div>
+
+            <div class="form-group">
+              <label for="editTenantContact">Persona de Contacto / Titular:</label>
+              <input type="text" id="editTenantContact" placeholder="Ej: Lic. Martín Rossi">
+            </div>
+
+            <div class="form-group">
+              <label for="editTenantPhone">Teléfono / WhatsApp:</label>
+              <input type="text" id="editTenantPhone" placeholder="Ej: +54 11 4500-1234">
+            </div>
+
+            <div class="form-group">
+              <label for="editTenantEmail">Correo Electrónico:</label>
+              <input type="email" id="editTenantEmail" placeholder="contacto@empresa.com">
+            </div>
+
+            <div class="form-group">
+              <label for="editContractStart">Inicio de Contrato:</label>
+              <input type="date" id="editContractStart">
+            </div>
+
+            <div class="form-group">
+              <label for="editContractEnd">Fin de Contrato:</label>
+              <input type="date" id="editContractEnd">
+            </div>
+
+            <div class="form-group full-width">
+              <label for="editSchedule">Horarios de Atención:</label>
+              <input type="text" id="editSchedule" placeholder="Ej: Lunes a Domingo: 10:00 a 22:00 hs">
+            </div>
+
+            <!-- INSTALACIONES -->
+            <div class="form-section-title full-width">4. Equipamiento e Instalaciones (separadas por comas)</div>
+            <div class="form-group full-width">
+              <label for="editFeatures">Instalaciones y Servicios disponibles:</label>
+              <input type="text" id="editFeatures" placeholder="Vidriera frontal, Trifásica 20kW, Salida de humos, Agua corriente, Climatización central...">
+            </div>
+
+            <!-- CAMPOS PERSONALIZADOS DINÁMICOS -->
+            <div class="form-section-title full-width">
+              <span>5. Campos Personalizados Dinámicos</span>
+              <button type="button" id="modalAddCustomFieldBtn" class="btn-xs btn-secondary">+ Añadir Campo</button>
+            </div>
+            <div id="modalCustomFieldsContainer" class="full-width dynamic-fields-container">
+              <!-- Dynamic key-value pairs -->
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <button type="button" id="cancelEditBtn" class="btn-secondary">Cancelar</button>
+            <button type="submit" id="saveStoreBtn" class="btn-primary">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                <polyline points="17 21 17 13 7 13 7 21"/>
+                <polyline points="7 3 7 8 15 8"/>
+              </svg>
+              Guardar Cambios
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- MODAL DE CONFIGURACIÓN & COPIAS DE SEGURIDAD -->
+    <div class="modal-overlay" id="settingsModalOverlay" style="display: none;">
+      <div class="modal-card modal-sm">
+        <div class="modal-header">
+          <h3 class="modal-title">Configuración y Respaldo</h3>
+          <button id="closeSettingsModalBtn" class="btn-icon">✕</button>
+        </div>
+        <div class="modal-body settings-body">
+          <div class="settings-group">
+            <h4>Exportar Datos</h4>
+            <p>Descarga la información completa de los locales para respaldo o análisis comercial:</p>
+            <div class="btn-group">
+              <button id="downloadJsonBtn" class="btn-secondary">Descargar JSON (Respaldo)</button>
+              <button id="downloadCsvBtn" class="btn-secondary">Descargar CSV (Excel)</button>
+            </div>
+          </div>
+
+          <div class="settings-group">
+            <h4>Importar Respaldo</h4>
+            <p>Restaura los datos de locales comerciales desde un archivo JSON:</p>
+            <input type="file" id="importJsonFileInput" accept=".json" style="display: none;">
+            <button id="uploadJsonBtn" class="btn-secondary">Cargar Archivo JSON</button>
+          </div>
+
+          <div class="settings-group danger-zone">
+            <h4>Reiniciar Datos</h4>
+            <p>Restablece todos los locales a la configuración original de fábrica:</p>
+            <button id="resetDatabaseBtn" class="btn-danger">Reiniciar a Valores Originales</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL CONECTAR CELULAR / QR -->
+    <div class="modal-overlay" id="mobileModalOverlay" style="display: none;">
+      <div class="modal-card modal-sm text-center">
+        <div class="modal-header">
+          <div>
+            <h3 class="modal-title">📱 Abrir en tu Celular</h3>
+            <p class="modal-subtitle">Conexión directa en red local Wi-Fi</p>
+          </div>
+          <button id="closeMobileModalBtn" class="btn-icon">✕</button>
+        </div>
+        <div class="modal-body mobile-connect-body">
+          <p class="mobile-hint">1. Escanea este código QR con la cámara de tu teléfono para entrar directamente:</p>
+          
+          <div class="qr-code-wrapper">
+            <img id="qrCodeImg" src="" alt="Código QR para celular" class="qr-code-img">
+          </div>
+
+          <p class="mobile-hint">2. O escribe esta dirección en el navegador de tu celular:</p>
+          <div class="mobile-url-box">
+            <input type="text" id="mobileUrlInput" readonly class="mobile-url-input" value="Cargando...">
+            <button id="copyMobileUrlBtn" class="btn-sm btn-secondary" title="Copiar dirección">Copiar</button>
+          </div>
+
+          <div class="mobile-requirements">
+            <span class="req-badge">💡 Importante:</span> Tu teléfono y tu computadora deben estar conectados a la <strong>misma red Wi-Fi</strong>.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TOAST NOTIFICATIONS -->
+    <div id="toastContainer" class="toast-container"></div>
+  </div>
+
+  <!-- SCRIPTS -->
+  <script src="map-data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
